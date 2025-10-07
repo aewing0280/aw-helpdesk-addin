@@ -1,1 +1,27 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>AW Helpdesk Launcher</title>
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <script>
+      Office.onReady(function() {
+        try {
+          var opts = {
+            toRecipients: ["support@abelwomack.com"],
+            subject: "IT Support Request",
+            htmlBody:
+              "<p>Please describe your issue, impact, and urgency.</p>" +
+              "<p><b>Device/User:</b><br/><b>Location:</b><br/><b>Apps affected:</b><br/><b>When it started:</b></p>"
+          };
+          Office.context.mailbox.displayNewMessageForm(opts);
+        } catch (e) {
+          window.location.href = "mailto:support@abelwomack.com?subject=IT%20Support%20Request";
+        }
+      });
+    </script>
+    <style>body{font:14px system-ui,Segoe UI,Arial;margin:16px}</style>
+  </head>
+  <body>Launching AW Helpdesk…</body>
+</html>
 
