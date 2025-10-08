@@ -1,4 +1,3 @@
-
 // functions.js — command handlers for the AW Helpdesk add-in
 (function () {
   'use strict';
@@ -9,19 +8,13 @@
 
   function toast(msg) {
     try {
-      var item = Office.context && Office.context.mailbox && Office.context.mailbox.item;
-      if (item && item.notificationMessages) {
-        item.notificationMessages.replaceAsync("aw-status", {
-          type: "informationalMessage",
-          message: msg,
-          icon: "icon16",
-          persistent: false
-        });
-      }
+      var item = Office?.context?.mailbox?.item;
+      item?.notificationMessages?.replaceAsync("aw-status", {
+        type: "informationalMessage", message: msg, icon: "icon16", persistent: false
+      });
     } catch (e) {}
   }
 
-  // Opens a new pre-addressed message to support@abelwomack.com
   function createTicket(event) {
     try {
       toast("Launching new email…");
@@ -33,37 +26,30 @@
           "<p><b>Device/User:</b><br/><b>Location:</b><br/><b>Apps affected:</b><br/><b>When it started:</b></p>"
       });
     } catch (e) {
-      // Fallback outside Office
-      try {
-        window.open("mailto:support@abelwomack.com?subject=IT%20Support%20Support%20Request", "_blank");
-      } catch (_) {}
-    } finally {
-      safeComplete(event);
-    }
+      // Works even outside Outlook/OWA so you can test in a normal browser
+      try { window.open("mailto:support@abelwomack.com?subject=IT%20Support%20Request", "_blank"); } catch (_) {}
+    } finally { safeComplete(event); }
   }
 
-  // Opens the helpdesk portal
   function openPortal(event) {
     var url = "https://help.abelwomack.com";
     try {
+      // Some portals block iframes; we try dialog first then fall back
       toast("Opening Helpdesk Portal…");
       Office.context.ui.displayDialogAsync(url, { height: 55, width: 40, displayInIframe: true }, function (res) {
-        if (res.status !== Office.AsyncResultStatus.Succeeded) {
-          try { window.open(url, "_blank"); } catch (_) {}
-        }
+        if (res.status !== Office.AsyncResultStatus.Succeeded) { try { window.open(url, "_blank"); } catch(_){} }
       });
     } catch (e) {
-      try { window.open(url, "_blank"); } catch (_) {}
-    } finally {
-      safeComplete(event);
-    }
+      try { window.open(url, "_blank"); } catch(_) {}
+    } finally { safeComplete(event); }
   }
 
   // Expose globally for ExecuteFunction
   window.createTicket = createTicket;
   window.openPortal   = openPortal;
 
-  if (window.Office && Office.onReady) {
-    Office.onReady(function(){ /* ready */ });
-  }
+  if (window.Office && Office.onReady) { Office.onReady(function(){ /* ready */ }); }
+
+  // Make testing obvious in the browser console
+  console.log("AW functions.js loaded");
 })();
