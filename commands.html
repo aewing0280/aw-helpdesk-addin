@@ -1,28 +1,70 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8"/>
-    <title>AW Helpdesk Launcher</title>
-    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-    <script>
-      Office.onReady(function() {
-        try {
-          var opts = {
-            toRecipients: ["support@abelwomack.com"],
-            subject: "IT Support Request",
-            htmlBody:
-              "<p>Please describe your issue, impact, and urgency.</p>" +
-              "<p><b>Device/User:</b><br/><b>Location:</b><br/><b>Apps affected:</b><br/><b>When it started:</b></p>"
-          };
-          Office.context.mailbox.displayNewMessageForm(opts);
-        } catch (e) {
-          window.location.href = "mailto:support@abelwomack.com?subject=IT%20Support%20Request";
-        }
-      });
-    </script>
-    <style>body{font:14px system-ui,Segoe UI,Arial;margin:16px}</style>
-  </head>
-  <body>Launching AW Helpdesk…</body>
+<head>
+  <meta charset="utf-8"/>
+  <title>AW Helpdesk</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <script>
+    function getParam(name){ return new URLSearchParams(location.search).get(name); }
+
+    function openEmailFallback(){
+      // Works anywhere, including plain browsers
+      window.location.href =
+        "mailto:support@abelwomack.com?subject=IT%20Support%20Request";
+    }
+
+    function createTicketOffice(event){
+      try{
+        Office.context.mailbox.displayNewMessageForm({
+          toRecipients:["support@abelwomack.com"],
+          subject:"IT Support Request",
+          htmlBody:"<p>Please describe the issue, impact, urgency.</p>"
+        });
+      } catch(e) {
+        openEmailFallback();
+      } finally {
+        if(event && event.completed) event.completed();
+      }
+    }
+
+    function openPortal(){
+      const url = "https://help.abelwomack.com";
+      try{
+        Office.context.ui.displayDialogAsync(url,{height:55,width:40,displayInIframe:true},function(res){
+          if(res.status !== Office.AsyncResultStatus.Succeeded){ window.open(url,"_blank"); }
+        });
+      } catch(e) {
+        window.open(url,"_blank");
+      }
+    }
+
+    // Office-aware init
+    Office.onReady(function(){
+      const action = getParam("do");
+      if(action === "createTicket"){ createTicketOffice(); }
+      if(action === "openPortal"){ openPortal(); }
+    });
+
+    // Non-Office fallback on load (optional: only trigger when asked)
+    window.addEventListener("load", function(){
+      const action = getParam("do");
+      if(!window.Office && action === "createTicket"){ openEmailFallback(); }
+    });
+  </script>
+  <style>
+    body{font:14px system-ui,Segoe UI,Arial;margin:16px}
+    button{padding:.6rem 1rem;margin-right:.5rem}
+  </style>
+</head>
+<body>
+  <h3>AW Helpdesk</h3>
+  <p>Use these for testing outside Outlook:</p>
+  <button onclick="openEmailFallback()">Email Helpdesk</button>
+  <button onclick="openPortal()">Helpdesk Portal</button>
+  <p>Direct test links:</p>
+  <ul>
+    <li><a href="?do=createTicket">?do=createTicket</a> (opens mailto in a browser; Outlook compose inside OWA/Outlook)</li>
+    <li><a href="?do=openPortal">?do=openPortal</a></li>
+  </ul>
+</body>
 </html>
-
-
