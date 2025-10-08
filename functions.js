@@ -15,38 +15,47 @@
     } catch (e) {}
   }
 
- function createTicket(event) {
+function createTicket(event) {
   const to = "support@abelwomack.com";
   const subject = "IT Support Request";
-  const body = encodeURIComponent(
+  const bodyText =
     "Please describe your issue, impact, and urgency.\n\n" +
-    "Device/User:\nLocation:\nApps affected:\nWhen it started:\n"
-  );
+    "Device/User:\nLocation:\nApps affected:\nWhen it started:\n";
 
-  // OWA compose deep link: works reliably in browser and desktop (opens OWA)
+  // Deep link to OWA compose (works in any browser if pop-ups allowed)
   const deeplink =
     `https://outlook.office.com/mail/deeplink/compose?` +
-    `to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${body}`;
+    `to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
+
+  // Same-origin redirect page on your GitHub Pages (avoids cross-domain quirks)
+  const redirect =
+    `https://aewing0280.github.io/aw-helpdesk-addin/compose.html?` +
+    `to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
 
   try {
-    // Prefer sanctioned API if available to avoid popup blockers
-    if (Office?.context?.ui?.openBrowserWindow) {
-      Office.context.ui.openBrowserWindow(deeplink);
-    } else if (Office?.context?.mailbox?.displayNewMessageForm) {
-      // Desktop Outlook often supports this
+    // 1) Prefer the Outlook API (no popup blockers)
+    if (Office?.context?.mailbox?.displayNewMessageForm) {
       Office.context.mailbox.displayNewMessageForm({
         toRecipients: [to],
-        subject: subject,
-        htmlBody: "<pre style='font-family:Segoe UI,system-ui'>" + decodeURIComponent(body) + "</pre>"
+        subject,
+        htmlBody: "<pre style='font-family:Segoe UI,system-ui'>" + bodyText + "</pre>"
       });
-    } else {
-      // Last-resort fallback
-      window.open(`mailto:${to}?subject=${encodeURIComponent(subject)}`, "_blank");
+      return;
     }
+
+    // 2) Try opening OWA compose directly
+    if (Office?.context?.ui?.openBrowserWindow) {
+      Office.context.ui.openBrowserWindow(deeplink);
+      return;
+    }
+
+    // 3) Open same-origin redirect (then it forwards to OWA)
+    window.open(redirect, "_blank");
   } finally {
     try { event?.completed?.(); } catch (_) {}
   }
 }
+
 
 
 function openPortal(event) {
