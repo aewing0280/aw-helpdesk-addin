@@ -5,7 +5,9 @@
   <title>AW Helpdesk Functions</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
   <script>
-    // Called by the command button (ExecuteFunction)
+    Office.onReady(function(){});
+
+    // Existing: launch a compose to support@abelwomack.com
     function createTicket(event) {
       try {
         Office.context.mailbox.displayNewMessageForm({
@@ -16,15 +18,33 @@
             "<p><b>Device/User:</b><br/><b>Location:</b><br/><b>Apps affected:</b><br/><b>When it started:</b></p>"
         });
       } catch (e) {
-        // Fallback if APIs are blocked for any reason
-        window.open("mailto:support@abelwomack.com?subject=IT%20Support%20Request","_blank");
+        window.open("mailto:support@abelwomack.com?subject=IT%20Support%20Request", "_blank");
       } finally {
-        // MUST call completed() in ExecuteFunction handlers
         if (event && typeof event.completed === "function") event.completed();
       }
     }
-    Office.onReady(function(){ /* no-op */ });
+
+    // NEW: open the helpdesk portal
+    function openPortal(event) {
+      var url = "https://help.abelwomack.com";
+      try {
+        // Prefer in-app dialog
+        Office.context.ui.displayDialogAsync(url, { height: 55, width: 40, displayInIframe: true }, function (asyncResult) {
+          if (asyncResult.status !== Office.AsyncResultStatus.Succeeded) {
+            // Fallback if domain can’t be iframed or policy blocks dialogs
+            window.open(url, "_blank");
+          }
+          if (event && typeof event.completed === "function") event.completed();
+        });
+      } catch (e) {
+        window.open(url, "_blank");
+        if (event && typeof event.completed === "function") event.completed();
+      }
+    }
+
+    // expose for ExecuteFunction
     window.createTicket = createTicket;
+    window.openPortal   = openPortal;
   </script>
   <style>body{font:14px system-ui,Segoe UI,Arial;margin:16px}</style>
 </head>
