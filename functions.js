@@ -18,36 +18,90 @@
 function createTicket(event) {
   const to = "support@abelwomack.com";
   const subject = "IT Support Request";
-  const bodyText =
-    "Please describe your issue, impact, and urgency.\n\n" +
-    "Device/User:\nLocation:\nApps affected:\nWhen it started:\n";
 
-  // Deep link to OWA compose (works in any browser if pop-ups allowed)
+  // Who’s asking (best effort)
+  const user = {
+    name:  Office?.context?.mailbox?.userProfile?.displayName || "",
+    email: Office?.context?.mailbox?.userProfile?.emailAddress || ""
+  };
+  const when = new Date().toLocaleString();
+
+  // ----- Ticket template (text + html) -----
+  const bodyText =
+`Summary: <one sentence of the issue>
+
+Impact/Urgency: <P1 | P2 | P3 | P4>
+Users Affected: <who/which team>
+Location: <office/remote + city>
+Device: <model / asset tag>
+Applications/Services Affected: <app names>
+Error Messages: <exact text or screenshot>
+When It Started: <date/time>
+Steps Already Tried: <bullets>
+Attachments: <logs/screenshots if any>
+Best Callback: <phone or Teams handle>
+
+Requested by: ${user.name} ${user.email ? `(${user.email})` : ""}
+Timestamp: ${when}
+`;
+
+  const bodyHtml =
+`<div style="font-family:Segoe UI,system-ui,Arial,sans-serif;font-size:12.5pt;line-height:1.35">
+  <p><b>Summary:</b> &lt;one sentence of the issue&gt;</p>
+  <p><b>Impact/Urgency:</b> &lt;P1 | P2 | P3 | P4&gt;</p>
+  <p><b>Users Affected:</b> &lt;who/which team&gt;</p>
+  <p><b>Location:</b> &lt;office/remote + city&gt;</p>
+  <p><b>Device:</b> &lt;model / asset tag&gt;</p>
+  <p><b>Applications/Services Affected:</b> &lt;app names&gt;</p>
+  <p><b>Error Messages:</b> &lt;exact text or screenshot&gt;</p>
+  <p><b>When It Started:</b> &lt;date/time&gt;</p>
+  <p><b>Steps Already Tried:</b><br>
+     • &lt;step 1&gt;<br>
+     • &lt;step 2&gt;</p>
+  <p><b>Attachments:</b> &lt;logs/screenshots if any&gt;</p>
+  <p><b>Best Callback:</b> &lt;phone or Teams handle&gt;</p>
+  <hr style="border:none;border-top:1px solid #ddd;margin:14px 0">
+  <p style="color:#555"><b>Requested by:</b> ${user.name}${user.email ? ` (${user.email})` : ""}<br>
+     <b>Timestamp:</b> ${when}</p>
+</div>`;
+
   const deeplink =
     `https://outlook.office.com/mail/deeplink/compose?` +
-    `to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
+    `to=${encodeURIComponent(to)}` +
+    `&subject=${encodeURIComponent(subject)}` +
+    `&body=${encodeURIComponent(bodyText)}`;
 
-  // Same-origin redirect page on your GitHub Pages (avoids cross-domain quirks)
   const redirect =
     `https://aewing0280.github.io/aw-helpdesk-addin/compose.html?` +
-    `to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
+    `to=${encodeURIComponent(to)}` +
+    `&subject=${encodeURIComponent(subject)}` +
+    `&body=${encodeURIComponent(bodyText)}`;
 
   try {
-    // 1) Prefer the Outlook API (no popup blockers)
+    // #1: Native API (preferred)
     if (Office?.context?.mailbox?.displayNewMessageForm) {
       Office.context.mailbox.displayNewMessageForm({
         toRecipients: [to],
         subject,
-        htmlBody: "<pre style='font-family:Segoe UI,system-ui'>" + bodyText + "</pre>"
+        htmlBody: bodyHtml
+        // Optional: cc the requester
+        // ,ccRecipients: [ user.email ].filter(Boolean)
       });
       return;
     }
 
-    // 2) Try opening OWA compose directly
+    // #2: Open OWA compose deeplink
     if (Office?.context?.ui?.openBrowserWindow) {
       Office.context.ui.openBrowserWindow(deeplink);
       return;
     }
+
+    // #3: Same-origin redirect → OWA compose
+    window.open(redirect, "_blank");
+  } finally {
+    try { event?.completed?.(); } catch (_) {}
+  }
+}
 
     // 3) Open same-origin redirect (then it forwards to OWA)
     window.open(redirect, "_blank");
