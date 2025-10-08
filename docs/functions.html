@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>AW Helpdesk Functions</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <script>
+    // Called by the command button (ExecuteFunction)
+    function createTicket(event) {
+      try {
+        Office.context.mailbox.displayNewMessageForm({
+          toRecipients: ["support@abelwomack.com"],
+          subject: "IT Support Request",
+          htmlBody:
+            "<p>Please describe your issue, impact, and urgency.</p>" +
+            "<p><b>Device/User:</b><br/><b>Location:</b><br/><b>Apps affected:</b><br/><b>When it started:</b></p>"
+        });
+      } catch (e) {
+        // Fallback if APIs are blocked for any reason
+        window.open("mailto:support@abelwomack.com?subject=IT%20Support%20Request","_blank");
+      } finally {
+        // MUST call completed() in ExecuteFunction handlers
+        if (event && typeof event.completed === "function") event.completed();
+      }
+    }
+    Office.onReady(function(){ /* no-op */ });
+    window.createTicket = createTicket;
+  </script>
+  <style>body{font:14px system-ui,Segoe UI,Arial;margin:16px}</style>
+</head>
+<body>OK</body>
+</html>
