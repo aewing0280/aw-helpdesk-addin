@@ -3,15 +3,55 @@
 <head>
   <meta charset="utf-8"/>
   <title>AW Helpdesk FunctionFile</title>
+  <!-- Always use Microsoft CDN -->
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-  <!-- Your command handlers live here -->
-  <script src="./functions.js?v=1"></script>
   <script>
-    // Ensure Office runtime is ready before commands run
-    if (window.Office && Office.onReady) {
-      Office.onReady(function(){ /* no-op; handlers are already on window */ });
-    }
-  </script>
-</head>
-<body>OK</body>
-</html>
+    (function () {
+      "use strict";
+
+      function done(e){ try{ e && typeof e.completed === "function" && e.completed(); } catch(_){} }
+      function toast(msg){
+        try {
+          var it = Office.context && Office.context.mailbox && Office.context.mailbox.item;
+          if (it && it.notificationMessages) {
+            it.notificationMessages.replaceAsync("aw-status", {
+              type: "informationalMessage", message: msg, icon: "icon16", persistent: false
+            });
+          }
+        } catch(_) {}
+      }
+
+      // 1) Email action
+      function createTicket(event){
+        try {
+          toast("Launching new email…");
+          Office.context.mailbox.displayNewMessageForm({
+            toRecipients: ["support@abelwomack.com"],
+            subject: "IT Support Request",
+            htmlBody:
+              "<p>Please describe your issue, impact, and urgency.</p>" +
+              "<p><b>Device/User:</b><br/><b>Location:</b><br/><b>Apps affected:</b><br/><b>When it started:</b></p>"
+          });
+        } catch (e) {
+          // Fallback (OWA popup blocker may apply)
+          try { window.open("mailto:support@abelwomack.com?subject=IT%20Support%20Request", "_blank"); } catch(_) {}
+          console.error("createTicket error:", e);
+        } finally { done(event); }
+      }
+
+      // 2) Portal action (avoid dialog; some tenants block iframes)
+      function openPortal(event){
+        var url = "https://help.abelwomack.com";
+        try {
+          // Open a new tab directly; dialog() can be blocked by policy/CSP
+          window.open(url, "_blank");
+        } catch (e) {
+          console.error("openPortal error:", e);
+        } finally { done(event); }
+      }
+
+      // Expose globally for ExecuteFunction
+      window.createTicket = createTicket;
+      window.openPortal   = openPortal;
+
+      if (window.Office && O
