@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Compose redirect…</title>
+<script>
+  (function () {
+    const p = new URLSearchParams(location.search);
+    const to = p.get("to") || "";
+    const subject = p.get("subject") || "";
+    const body = p.get("body") || "";
+    const url = "https://outlook.office.com/mail/deeplink/compose"
+      + "?to=" + encodeURIComponent(to)
+      + "&subject=" + encodeURIComponent(subject)
+      + "&body=" + encodeURIComponent(body);
+    // Navigate immediately
+    location.replace(url);
+  })();
+</script>
+<body>Redirecting to Outlook…</body>
