@@ -15,21 +15,39 @@
     } catch (e) {}
   }
 
-  function createTicket(event) {
-    try {
-      toast("Launching new email…");
+ function createTicket(event) {
+  const to = "support@abelwomack.com";
+  const subject = "IT Support Request";
+  const body = encodeURIComponent(
+    "Please describe your issue, impact, and urgency.\n\n" +
+    "Device/User:\nLocation:\nApps affected:\nWhen it started:\n"
+  );
+
+  // OWA compose deep link: works reliably in browser and desktop (opens OWA)
+  const deeplink =
+    `https://outlook.office.com/mail/deeplink/compose?` +
+    `to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${body}`;
+
+  try {
+    // Prefer sanctioned API if available to avoid popup blockers
+    if (Office?.context?.ui?.openBrowserWindow) {
+      Office.context.ui.openBrowserWindow(deeplink);
+    } else if (Office?.context?.mailbox?.displayNewMessageForm) {
+      // Desktop Outlook often supports this
       Office.context.mailbox.displayNewMessageForm({
-        toRecipients: ["support@abelwomack.com"],
-        subject: "IT Support Request",
-        htmlBody:
-          "<p>Please describe your issue, impact, and urgency.</p>" +
-          "<p><b>Device/User:</b><br/><b>Location:</b><br/><b>Apps affected:</b><br/><b>When it started:</b></p>"
+        toRecipients: [to],
+        subject: subject,
+        htmlBody: "<pre style='font-family:Segoe UI,system-ui'>" + decodeURIComponent(body) + "</pre>"
       });
-    } catch (e) {
-      // Works even outside Outlook/OWA so you can test in a normal browser
-      try { window.open("mailto:support@abelwomack.com?subject=IT%20Support%20Request", "_blank"); } catch (_) {}
-    } finally { safeComplete(event); }
+    } else {
+      // Last-resort fallback
+      window.open(`mailto:${to}?subject=${encodeURIComponent(subject)}`, "_blank");
+    }
+  } finally {
+    try { event?.completed?.(); } catch (_) {}
   }
+}
+
 
 function openPortal(event) {
   const url = "https://help.abelwomack.com";
