@@ -31,18 +31,21 @@
     } finally { safeComplete(event); }
   }
 
-  function openPortal(event) {
-    var url = "https://help.abelwomack.com";
-    try {
-      // Some portals block iframes; we try dialog first then fall back
-      toast("Opening Helpdesk Portal…");
-      Office.context.ui.displayDialogAsync(url, { height: 55, width: 40, displayInIframe: true }, function (res) {
-        if (res.status !== Office.AsyncResultStatus.Succeeded) { try { window.open(url, "_blank"); } catch(_){} }
-      });
-    } catch (e) {
-      try { window.open(url, "_blank"); } catch(_) {}
-    } finally { safeComplete(event); }
+function openPortal(event) {
+  const url = "https://help.abelwomack.com";
+  try {
+    // Prefer the Office API if available (respects user gesture from ribbon click)
+    if (Office?.context?.ui?.openBrowserWindow) {
+      Office.context.ui.openBrowserWindow(url);
+    } else {
+      // Fallback—open a new tab/window
+      window.open(url, "_blank");
+    }
+  } finally {
+    try { event?.completed?.(); } catch (_) {}
   }
+}
+
 
   // Expose globally for ExecuteFunction
   window.createTicket = createTicket;
