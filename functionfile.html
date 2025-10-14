@@ -2,30 +2,13 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>AW Helpdesk FunctionFile v12</title>
-
+  <title>AW Helpdesk FunctionFile v13</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
   <script>
-    function awLog(msg, err) {
-      try { console.log("[AW]", msg, err || ""); } catch(_) {}
-      try {
-        const item = Office?.context?.mailbox?.item;
-        if (item?.notificationMessages) {
-          item.notificationMessages.replaceAsync(
-            "awdiag",
-            { type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
-              message: String(msg).slice(0,150), icon: "icon16", persistent: false },
-            function(){}
-          );
-        }
-      } catch(_) {}
-    }
-
-    function buildBodies() {
-      const user = Office?.context?.mailbox?.userProfile || {};
-      const when = new Date().toLocaleString();
-      const text =
-`Summary: <one sentence>
+    function awLog(m,e){try{console.log("[AW]",m,e||"")}catch(_){}}    
+    function buildBodies(){
+      const u=Office?.context?.mailbox?.userProfile||{}, when=new Date().toLocaleString();
+      const text=`Summary: <one sentence>
 Impact/Urgency: <P1|P2|P3|P4>
 Users Affected: <>
 Location: <>
@@ -36,10 +19,10 @@ Start Time: <>
 Steps Tried: <>
 Callback: <>
 
-Requested by: ${user.displayName || ""} ${user.emailAddress ? "(" + user.emailAddress + ")" : ""}
+Requested by: ${u.displayName||""} ${u.emailAddress?("("+u.emailAddress+")"):""}
 Timestamp: ${when}
 `;
-      const html = `<div style="font-family:Segoe UI,Arial,sans-serif;font-size:12.5pt;line-height:1.35">
+      const html=`<div style="font-family:Segoe UI,Arial,sans-serif;font-size:12.5pt;line-height:1.35">
   <p><b>Summary:</b> &lt;one sentence&gt;</p>
   <p><b>Impact/Urgency:</b> &lt;P1|P2|P3|P4&gt;</p>
   <p><b>Users Affected:</b> &lt;&gt;</p>
@@ -51,73 +34,51 @@ Timestamp: ${when}
   <p><b>Steps Tried:</b><br>• &lt;&gt;<br>• &lt;&gt;</p>
   <p><b>Callback:</b> &lt;phone or Teams handle&gt;</p>
 </div>`;
-      return { text, html };
+      return {text, html};
     }
 
-    // Always complete the event FIRST, then do async work.
-    window.createTicket = function (event) {
-      try { event?.completed(); } catch(_) {}
-      const to = "support@abelwomack.com";
-      const subject = "IT Support Request";
-      const { text, html } = buildBodies();
-
+    function openDeeplink(to, subject, text){
+      const url=`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
       try {
-        if (Office?.context?.mailbox?.displayNewMessageForm) {
-          Office.context.mailbox.displayNewMessageForm({
-            toRecipients: [to],
-            subject: subject,
-            htmlBody: html
-          });
-          awLog("createTicket: displayNewMessageForm");
-          return;
-        }
+        if (Office?.context?.ui?.openBrowserWindow) { Office.context.ui.openBrowserWindow(url); }
+        else { window.open(url, "_blank"); }
+        awLog("fallback: deeplink opened");
       } catch(e) {
-        awLog("createTicket: displayNewMessageForm error", e);
+        try { window.open('mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subject),'_blank'); awLog("fallback: mailto"); } catch(e2){ awLog("fallback failed",e2); }
       }
+    }
 
+    window.createTicket=function(event){
+      try{event?.completed();}catch(_){}
+      const to="support@abelwomack.com", subject="IT Support Request";
+      const {text, html}=buildBodies();
+
+      // Try native compose
       try {
-        const deeplink =
-          `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
-        if (Office?.context?.ui?.openBrowserWindow) {
-          Office.context.ui.openBrowserWindow(deeplink);
-          awLog("createTicket: openBrowserWindow deeplink");
+        if (Office?.context?.mailbox?.displayNewMessageForm){
+          Office.context.mailbox.displayNewMessageForm({ toRecipients:[to], subject, htmlBody: html });
+          awLog("displayNewMessageForm called");
         } else {
-          window.open(deeplink, "_blank");
-          awLog("createTicket: window.open deeplink");
+          awLog("displayNewMessageForm not available");
         }
-      } catch(e2) {
-        // Last fallback
-        try {
-          window.open('mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent(subject), '_blank');
-          awLog("createTicket: mailto fallback");
-        } catch(e3) {
-          awLog("createTicket: all fallbacks failed", e3);
-        }
-      }
+      } catch(e){ awLog("displayNewMessageForm error",e); }
+
+      // Belt-and-suspenders: if OWA ignored the call, open deeplink shortly after
+      setTimeout(function(){ openDeeplink(to, subject, text); }, 500);
     };
 
-    window.openPortal = function (event) {
-      try { event?.completed(); } catch(_) {}
+    window.openPortal=function(event){
+      try{event?.completed();}catch(_){}
+      const url="https://help.abelwomack.com";
       try {
-        const url = "https://help.abelwomack.com";
-        if (Office?.context?.ui?.openBrowserWindow) {
-          Office.context.ui.openBrowserWindow(url);
-          awLog("openPortal: openBrowserWindow");
-        } else {
-          window.open(url, "_blank");
-          awLog("openPortal: window.open");
-        }
-      } catch (e) {
-        awLog("openPortal error", e);
-      }
+        if (Office?.context?.ui?.openBrowserWindow) { Office.context.ui.openBrowserWindow(url); }
+        else { window.open(url, "_blank"); }
+        awLog("portal opened");
+      } catch(e){ awLog("portal error",e); }
     };
 
-    Office.onReady(() => {
-      window.__aw_loaded__ = true;
-      window.__aw_diag__  = () => "OK:" + (new Date()).toISOString();
-      awLog("FunctionFile v12 ready");
-    });
+    Office.onReady(()=>{ awLog("FunctionFile v13 ready"); });
   </script>
 </head>
-<body style="font-family:Segoe UI,Arial,sans-serif;font-size:12px">OK</body>
+<body>OK</body>
 </html>
