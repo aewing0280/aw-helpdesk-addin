@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>AW Helpdesk FunctionFile v15</title>
+  <title>AW Helpdesk FunctionFile v16</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
   <script>
     function log(){ try{ console.log.apply(console, ["[AW]"].concat([].slice.call(arguments))); }catch(_){} }
@@ -28,10 +28,10 @@ Timestamp: ${when}
 
     function openComposeDialog(to, subject, bodyText){
       const base = "https://aewing0280.github.io/aw-helpdesk-addin/compose.html";
-      const url = `${base}?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}&v=15`;
+      const url = `${base}?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}&v=16`;
       Office.context.ui.displayDialogAsync(
         url,
-        { height: 65, width: 40, displayInIframe: false }, // true=iframe; false=popup
+        { height: 65, width: 40, displayInIframe: false }, // open as separate window (avoids iframe CSP)
         function (ar) {
           if (ar.status !== Office.AsyncResultStatus.Succeeded) {
             log("displayDialogAsync failed:", ar.error && ar.error.message);
@@ -39,33 +39,32 @@ Timestamp: ${when}
           }
           const dlg = ar.value;
           log("dialog opened");
-          // Listen for errors/close
-          dlg.addEventHandler(Office.EventType.DialogEventReceived, function (ev) {
-            log("dialog event:", JSON.stringify(ev));
-          });
-          // Close after a couple seconds (compose should have taken over)
-          setTimeout(function(){ try{ dlg.close(); }catch(_){ }}, 3000);
+          dlg.addEventHandler(Office.EventType.DialogEventReceived, ev => log("dialog event:", JSON.stringify(ev)));
+          // Close after a couple seconds; compose page should have taken over
+          setTimeout(() => { try { dlg.close(); } catch(_){} }, 3000);
         }
       );
     }
 
+    // Commands
     window.createTicket = function (event) {
-      try { event?.completed(); } catch(_) {}
       const to = "support@abelwomack.com";
       const subject = "IT Support Request";
       const text = buildText();
 
-      // Native call (if honored) + dialog fallback
+      // 1) Open dialog immediately (so it can't be skipped when the functionfile is torn down)
+      openComposeDialog(to, subject, text);
+
+      // 2) Try native compose too (if OWA honors it, great)
       try {
         if (Office?.context?.mailbox?.displayNewMessageForm) {
           Office.context.mailbox.displayNewMessageForm({ toRecipients:[to], subject, htmlBody: text });
           log("displayNewMessageForm called");
-          setTimeout(function(){ openComposeDialog(to, subject, text); }, 500);
-          return;
         }
       } catch(e){ log("displayNewMessageForm error:", e); }
 
-      openComposeDialog(to, subject, text);
+      // 3) Now let the command finish
+      try { event?.completed(); } catch(_){}
     };
 
     window.openPortal = function (event) {
@@ -78,7 +77,7 @@ Timestamp: ${when}
       } catch(e){ log("portal error:", e); }
     };
 
-    Office.onReady(() => log("FunctionFile v15 ready"));
+    Office.onReady(() => log("FunctionFile v16 ready"));
   </script>
 </head>
 <body>OK</body>
