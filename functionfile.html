@@ -1,23 +1,130 @@
 <!doctype html>
 <html>
   <head>
-    <meta charset="utf-8"/>
-    <!-- Office JS must load first -->
+    <meta charset="utf-8" />
+    <title>AW Helpdesk FunctionFile</title>
+
+    <!-- Load Office.js first -->
     <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+
+    <!-- Inline handlers (no external functions.js) -->
     <script>
-      // Minimal, loud diagnostics to prove load
-      (function () {
-        Office.onReady(() => {
-          console.log("[AW] Office.onReady fired");
-          try { Office.context.ui && Office.context.ui.displayDialogAsync; } catch(e){}
-          // Expose a test to the window so we can verify from console
-          window.__aw_diag__ = () => "OK:" + (new Date()).toISOString();
-          // Set a global flag so we know FunctionFile is actually loaded
-          window.__aw_loaded__ = true;
-        });
-      })();
+      // Basic logger
+      function awLog(msg, err) {
+        try { console.log("[AW]", msg, err || ""); } catch(_) {}
+        try {
+          const item = Office?.context?.mailbox?.item;
+          if (item && item.notificationMessages) {
+            item.notificationMessages.replaceAsync(
+              "awdiag",
+              {
+                type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
+                message: String(msg).slice(0,150),
+                icon: "icon16",
+                persistent: false
+              },
+              function(){}
+            );
+          }
+        } catch(_) {}
+      }
+
+      function isCompose() {
+        return !!(Office?.context?.mailbox?.item?.to?.setAsync);
+      }
+
+      function buildBodies() {
+        const user = Office?.context?.mailbox?.userProfile || {};
+        const when = new Date().toLocaleString();
+        const text =
+`Summary: <one sentence>
+Impact/Urgency: <P1|P2|P3|P4>
+Users Affected: <>
+Location: <>
+Device: <>
+Apps/Services: <>
+Error Messages: <>
+Start Time: <>
+Steps Tried: <>
+Callback: <>
+
+Requested by: ${user.displayName || ""} ${user.emailAddress ? "(" + user.emailAddress + ")" : ""}
+Timestamp: ${when}
+`;
+        const html = `<div style="font-family:Segoe UI,Arial,sans-serif;font-size:12.5pt;line-height:1.35">
+  <p><b>Summary:</b> &lt;one sentence&gt;</p>
+  <p><b>Impact/Urgency:</b> &lt;P1|P2|P3|P4&gt;</p>
+  <p><b>Users Affected:</b> &lt;&gt;</p>
+  <p><b>Location:</b> &lt;&gt;</p>
+  <p><b>Device:</b> &lt;&gt;</p>
+  <p><b>Apps/Services:</b> &lt;&gt;</p>
+  <p><b>Error Messages:</b> &lt;&gt;</p>
+  <p><b>Start Time:</b> &lt;&gt;</p>
+  <p><b>Steps Tried:</b><br>• &lt;&gt;<br>• &lt;&gt;</p>
+  <p><b>Callback:</b> &lt;phone or Teams handle&gt;</p>
+</div>`;
+        return { text, html };
+      }
+
+      // REQUIRED: expose handlers on window and always call event.completed()
+      window.createTicket = function(event) {
+        const to = "support@abelwomack.com";
+        const subject = "IT Support Request";
+        const { text, html } = buildBodies();
+
+        try {
+          if (isCompose()) {
+            const item = Office.context.mailbox.item;
+            const ops = [];
+            ops.push(new Promise(res => item.to.setAsync([{ emailAddress: to }], {}, () => res())));
+            ops.push(new Promise(res => item.subject.setAsync(subject, {}, () => res())));
+            ops.push(new Promise(res => item.body.setAsync(html, { coercionType: Office.CoercionType.Html }, () => res())));
+            Promise.all(ops).then(() => awLog("compose: filled")).finally(() => event.completed());
+          } else {
+            if (Office?.context?.mailbox?.displayNewMessageForm) {
+              Office.context.mailbox.displayNewMessageForm({ toRecipients: [to], subject, htmlBody: html });
+              awLog("read: displayNewMessageForm");
+            } else if (Office?.context?.ui?.openBrowserWindow) {
+              const deeplink =
+                `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+              Office.context.ui.openBrowserWindow(deeplink);
+              awLog("read: openBrowserWindow");
+            } else {
+              window.open('mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent(subject), '_blank');
+              awLog("read: mailto fallback");
+            }
+            event.completed();
+          }
+        } catch (e) {
+          awLog("createTicket error", e);
+          try { event.completed(); } catch(_) {}
+        }
+      };
+
+      window.openPortal = function(event) {
+        try {
+          const url = "https://help.abelwomack.com";
+          if (Office?.context?.ui?.openBrowserWindow) {
+            Office.context.ui.openBrowserWindow(url);
+            awLog("portal: openBrowserWindow");
+          } else {
+            window.open(url, "_blank");
+            awLog("portal: window.open");
+          }
+        } catch (e) {
+          awLog("openPortal error", e);
+        } finally {
+          try { event.completed(); } catch(_) {}
+        }
+      };
+
+      // Prove Office.onReady ran
+      Office.onReady(() => {
+        window.__aw_loaded__ = true;
+        window.__aw_diag__  = () => "OK:" + (new Date()).toISOString();
+        awLog("FunctionFile ready");
+      });
     </script>
-    <script src="./functions.js?v=10"></script>
   </head>
   <body style="font-family:Segoe UI,Arial,sans-serif;font-size:12px">
     OK
