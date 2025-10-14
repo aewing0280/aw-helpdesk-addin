@@ -2,25 +2,47 @@
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>AW Compose Redirect</title>
+  <title>AW Compose Redirect (Dialog-safe)</title>
+  <style>
+    body{font-family:Segoe UI,Arial,sans-serif;margin:24px}
+    button{font-size:14px;padding:10px 16px}
+    .hint{margin-top:12px;color:#555}
+  </style>
   <script>
-    (function(){
-      // Read query params (?to=&subject=&body=)
-      const p = new URLSearchParams(location.search);
-      const to = p.get("to") || "support@abelwomack.com";
-      const subject = p.get("subject") || "IT Support Request";
-      const body = p.get("body") || "Describe your issue here.";
+    function log(){ try{ console.log.apply(console, ["[AW-DIALOG]"].concat([].slice.call(arguments))); }catch(_){} }
 
-      // Outlook web compose deeplink
-      const deeplink = "https://outlook.office.com/mail/deeplink/compose"
+    function qs(k, d){ const p=new URLSearchParams(location.search); return p.get(k) ?? d; }
+
+    function tryOpen(){
+      const to = qs("to","support@abelwomack.com");
+      const subject = qs("subject","IT Support Request");
+      const body = qs("body","Describe your issue here.");
+      // Use the OWA deeplink in THIS window (dialog window)
+      const url = "https://outlook.office.com/mail/deeplink/compose"
         + `?to=${encodeURIComponent(to)}`
         + `&subject=${encodeURIComponent(subject)}`
         + `&body=${encodeURIComponent(body)}`;
+      try {
+        location.href = url;          // navigate dialog window itself
+        log("navigated to compose");
+      } catch(e) {
+        log("navigate failed", e);
+        // Final fallback: open a new tab (some hosts allow it)
+        try{ window.open(url, "_blank"); log("window.open fallback"); }catch(e2){ log("window.open failed", e2); }
+      }
+    }
 
-      // Navigate this window to Outlook compose
-      location.replace(deeplink);
-    })();
+    document.addEventListener("DOMContentLoaded", function(){
+      // Auto-attempt quickly (user-gesture path should be preserved from command click)
+      setTimeout(tryOpen, 50);
+      // Also provide a button if auto attempt is blocked by policy
+      document.getElementById("go").addEventListener("click", tryOpen);
+    });
   </script>
 </head>
-<body>Opening compose…</body>
+<body>
+  <h3>Opening a new ticket compose…</h3>
+  <button id="go">Open Compose Now</button>
+  <div class="hint">If nothing happens, click the button to continue.</div>
+</body>
 </html>
