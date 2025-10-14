@@ -2,13 +2,13 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>AW Helpdesk FunctionFile v13</title>
+  <title>AW Helpdesk FunctionFile v14</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
   <script>
-    function awLog(m,e){try{console.log("[AW]",m,e||"")}catch(_){}}    
-    function buildBodies(){
-      const u=Office?.context?.mailbox?.userProfile||{}, when=new Date().toLocaleString();
-      const text=`Summary: <one sentence>
+    function buildBodies() {
+      const u = Office?.context?.mailbox?.userProfile || {};
+      const when = new Date().toLocaleString();
+      const text = `Summary: <one sentence>
 Impact/Urgency: <P1|P2|P3|P4>
 Users Affected: <>
 Location: <>
@@ -19,65 +19,58 @@ Start Time: <>
 Steps Tried: <>
 Callback: <>
 
-Requested by: ${u.displayName||""} ${u.emailAddress?("("+u.emailAddress+")"):""}
+Requested by: ${u.displayName || ""} ${u.emailAddress ? "(" + u.emailAddress + ")" : ""}
 Timestamp: ${when}
 `;
-      const html=`<div style="font-family:Segoe UI,Arial,sans-serif;font-size:12.5pt;line-height:1.35">
-  <p><b>Summary:</b> &lt;one sentence&gt;</p>
-  <p><b>Impact/Urgency:</b> &lt;P1|P2|P3|P4&gt;</p>
-  <p><b>Users Affected:</b> &lt;&gt;</p>
-  <p><b>Location:</b> &lt;&gt;</p>
-  <p><b>Device:</b> &lt;&gt;</p>
-  <p><b>Apps/Services:</b> &lt;&gt;</p>
-  <p><b>Error Messages:</b> &lt;&gt;</p>
-  <p><b>Start Time:</b> &lt;&gt;</p>
-  <p><b>Steps Tried:</b><br>• &lt;&gt;<br>• &lt;&gt;</p>
-  <p><b>Callback:</b> &lt;phone or Teams handle&gt;</p>
-</div>`;
-      return {text, html};
+      const html = ""; // not used in dialog redirect path
+      return { text, html };
     }
 
-    function openDeeplink(to, subject, text){
-      const url=`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
-      try {
-        if (Office?.context?.ui?.openBrowserWindow) { Office.context.ui.openBrowserWindow(url); }
-        else { window.open(url, "_blank"); }
-        awLog("fallback: deeplink opened");
-      } catch(e) {
-        try { window.open('mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subject),'_blank'); awLog("fallback: mailto"); } catch(e2){ awLog("fallback failed",e2); }
-      }
-    }
-
-    window.createTicket=function(event){
-      try{event?.completed();}catch(_){}
-      const to="support@abelwomack.com", subject="IT Support Request";
-      const {text, html}=buildBodies();
-
-      // Try native compose
-      try {
-        if (Office?.context?.mailbox?.displayNewMessageForm){
-          Office.context.mailbox.displayNewMessageForm({ toRecipients:[to], subject, htmlBody: html });
-          awLog("displayNewMessageForm called");
-        } else {
-          awLog("displayNewMessageForm not available");
+    function openComposeViaDialog(to, subject, text) {
+      const base = "https://aewing0280.github.io/aw-helpdesk-addin/compose.html";
+      const url = `${base}?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+      Office.context.ui.displayDialogAsync(
+        url,
+        { height: 65, width: 35, displayInIframe: false }, // pop-out window
+        function (asyncResult) {
+          // We don't need to keep the dialog; the page immediately redirects itself.
+          // If you want, you can close after a short delay:
+          try { setTimeout(() => asyncResult.value && asyncResult.value.close && asyncResult.value.close(), 2500); } catch(_){}
         }
-      } catch(e){ awLog("displayNewMessageForm error",e); }
+      );
+    }
 
-      // Belt-and-suspenders: if OWA ignored the call, open deeplink shortly after
-      setTimeout(function(){ openDeeplink(to, subject, text); }, 500);
-    };
+    // Commands
+    window.createTicket = function (event) {
+      try { event?.completed(); } catch(_) {}
+      const to = "support@abelwomack.com";
+      const subject = "IT Support Request";
+      const { text } = buildBodies();
 
-    window.openPortal=function(event){
-      try{event?.completed();}catch(_){}
-      const url="https://help.abelwomack.com";
+      // Prefer native API if it works…
       try {
-        if (Office?.context?.ui?.openBrowserWindow) { Office.context.ui.openBrowserWindow(url); }
-        else { window.open(url, "_blank"); }
-        awLog("portal opened");
-      } catch(e){ awLog("portal error",e); }
+        if (Office?.context?.mailbox?.displayNewMessageForm) {
+          Office.context.mailbox.displayNewMessageForm({ toRecipients:[to], subject, htmlBody: text });
+          // also belt-and-suspenders with a dialog fallback shortly after
+          setTimeout(() => openComposeViaDialog(to, subject, text), 400);
+          return;
+        }
+      } catch(_){}
+
+      // …otherwise go straight to dialog redirect
+      openComposeViaDialog(to, subject, text);
     };
 
-    Office.onReady(()=>{ awLog("FunctionFile v13 ready"); });
+    window.openPortal = function (event) {
+      try { event?.completed(); } catch(_) {}
+      const url = "https://help.abelwomack.com";
+      try {
+        if (Office?.context?.ui?.openBrowserWindow) Office.context.ui.openBrowserWindow(url);
+        else window.open(url, "_blank");
+      } catch(_){}
+    };
+
+    Office.onReady(() => { console.log("[AW] FunctionFile v14 ready"); });
   </script>
 </head>
 <body>OK</body>
