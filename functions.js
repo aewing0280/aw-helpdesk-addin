@@ -1,139 +1,112 @@
-// functions.js — command handlers for the AW Helpdesk add-in
+// Keep everything on window and always call event.completed()
 (function () {
-  'use strict';
-
-  function safeComplete(event) {
-    try { event && typeof event.completed === "function" && event.completed(); } catch (e) {}
+  function isCompose() {
+    // Compose has setAsync methods; read doesn't
+    return !!(Office?.context?.mailbox?.item?.to?.setAsync);
   }
 
-  function toast(msg) {
+  function log(msg, err) {
+    try { console.log("[AW]", msg, err || ""); } catch(_){}
+    // Try to surface an in-product notice (best-effort, safe to ignore on read surface)
     try {
-      var item = Office?.context?.mailbox?.item;
-      item?.notificationMessages?.replaceAsync("aw-status", {
-        type: "informationalMessage", message: msg, icon: "icon16", persistent: false
-      });
-    } catch (e) {}
+      Office.context.mailbox.item.notificationMessages.replaceAsync(
+        "awdiag",
+        { type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
+          message: String(msg).slice(0,150),
+          icon: "icon16",
+          persistent: false
+        },
+        function(){}
+      );
+    } catch(_){}
   }
 
-function createTicket(event) {
-  const to = "support@abelwomack.com";
-  const subject = "IT Support Request";
+  function buildBodies() {
+    const user = Office?.context?.mailbox?.userProfile || {};
+    const when = new Date().toLocaleString();
+    const text = `Summary: <one sentence>
+Impact/Urgency: <P1|P2|P3|P4>
+Users Affected: <>
+Location: <>
+Device: <>
+Apps/Services: <>
+Error Messages: <>
+Start Time: <>
+Steps Tried: <>
+Callback: <>
 
-  // Who’s asking (best effort)
-  const user = {
-    name:  Office?.context?.mailbox?.userProfile?.displayName || "",
-    email: Office?.context?.mailbox?.userProfile?.emailAddress || ""
-  };
-  const when = new Date().toLocaleString();
-
-  // ----- Ticket template (text + html) -----
-  const bodyText =
-`Summary: <one sentence of the issue>
-
-Impact/Urgency: <P1 | P2 | P3 | P4>
-Users Affected: <who/which team>
-Location: <office/remote + city>
-Device: <model / asset tag>
-Applications/Services Affected: <app names>
-Error Messages: <exact text or screenshot>
-When It Started: <date/time>
-Steps Already Tried: <bullets>
-Attachments: <logs/screenshots if any>
-Best Callback: <phone or Teams handle>
-
-Requested by: ${user.name} ${user.email ? `(${user.email})` : ""}
+Requested by: ${user.displayName || ""} ${user.emailAddress ? "(" + user.emailAddress + ")" : ""}
 Timestamp: ${when}
 `;
-
-  const bodyHtml =
-`<div style="font-family:Segoe UI,system-ui,Arial,sans-serif;font-size:12.5pt;line-height:1.35">
-  <p><b>Summary:</b> &lt;one sentence of the issue&gt;</p>
-  <p><b>Impact/Urgency:</b> &lt;P1 | P2 | P3 | P4&gt;</p>
-  <p><b>Users Affected:</b> &lt;who/which team&gt;</p>
-  <p><b>Location:</b> &lt;office/remote + city&gt;</p>
-  <p><b>Device:</b> &lt;model / asset tag&gt;</p>
-  <p><b>Applications/Services Affected:</b> &lt;app names&gt;</p>
-  <p><b>Error Messages:</b> &lt;exact text or screenshot&gt;</p>
-  <p><b>When It Started:</b> &lt;date/time&gt;</p>
-  <p><b>Steps Already Tried:</b><br>
-     • &lt;step 1&gt;<br>
-     • &lt;step 2&gt;</p>
-  <p><b>Attachments:</b> &lt;logs/screenshots if any&gt;</p>
-  <p><b>Best Callback:</b> &lt;phone or Teams handle&gt;</p>
-  <hr style="border:none;border-top:1px solid #ddd;margin:14px 0">
-  <p style="color:#555"><b>Requested by:</b> ${user.name}${user.email ? ` (${user.email})` : ""}<br>
-     <b>Timestamp:</b> ${when}</p>
+    const html = `<div style="font-family:Segoe UI,Arial,sans-serif;font-size:12.5pt;line-height:1.35">
+  <p><b>Summary:</b> &lt;one sentence&gt;</p>
+  <p><b>Impact/Urgency:</b> &lt;P1|P2|P3|P4&gt;</p>
+  <p><b>Users Affected:</b> &lt;&gt;</p>
+  <p><b>Location:</b> &lt;&gt;</p>
+  <p><b>Device:</b> &lt;&gt;</p>
+  <p><b>Apps/Services:</b> &lt;&gt;</p>
+  <p><b>Error Messages:</b> &lt;&gt;</p>
+  <p><b>Start Time:</b> &lt;&gt;</p>
+  <p><b>Steps Tried:</b><br>• &lt;&gt;<br>• &lt;&gt;</p>
+  <p><b>Callback:</b> &lt;phone or Teams handle&gt;</p>
 </div>`;
-
-  const deeplink =
-    `https://outlook.office.com/mail/deeplink/compose?` +
-    `to=${encodeURIComponent(to)}` +
-    `&subject=${encodeURIComponent(subject)}` +
-    `&body=${encodeURIComponent(bodyText)}`;
-
-  const redirect =
-    `https://aewing0280.github.io/aw-helpdesk-addin/compose.html?` +
-    `to=${encodeURIComponent(to)}` +
-    `&subject=${encodeURIComponent(subject)}` +
-    `&body=${encodeURIComponent(bodyText)}`;
-
-  try {
-    // #1: Native API (preferred)
-    if (Office?.context?.mailbox?.displayNewMessageForm) {
-      Office.context.mailbox.displayNewMessageForm({
-        toRecipients: [to],
-        subject,
-        htmlBody: bodyHtml
-        // Optional: cc the requester
-        // ,ccRecipients: [ user.email ].filter(Boolean)
-      });
-      return;
-    }
-
-    // #2: Open OWA compose deeplink
-    if (Office?.context?.ui?.openBrowserWindow) {
-      Office.context.ui.openBrowserWindow(deeplink);
-      return;
-    }
-
-    // #3: Same-origin redirect → OWA compose
-    window.open(redirect, "_blank");
-  } finally {
-    try { event?.completed?.(); } catch (_) {}
+    return { text, html };
   }
-}
 
-    // 3) Open same-origin redirect (then it forwards to OWA)
-    window.open(redirect, "_blank");
-  } finally {
-    try { event?.completed?.(); } catch (_) {}
-  }
-}
+  // === REQUIRED: expose handlers on window and call event.completed() ===
 
+  window.createTicket = function (event) {
+    const to = "support@abelwomack.com";
+    const subject = "IT Support Request";
+    const { text, html } = buildBodies();
 
-
-function openPortal(event) {
-  const url = "https://help.abelwomack.com";
-  try {
-    // Prefer the Office API if available (respects user gesture from ribbon click)
-    if (Office?.context?.ui?.openBrowserWindow) {
-      Office.context.ui.openBrowserWindow(url);
-    } else {
-      // Fallback—open a new tab/window
-      window.open(url, "_blank");
+    try {
+      if (isCompose()) {
+        // Fill current draft
+        const item = Office.context.mailbox.item;
+        const ops = [];
+        ops.push(new Promise(res => item.to.setAsync([{ emailAddress: to }], {}, () => res())));
+        ops.push(new Promise(res => item.subject.setAsync(subject, {}, () => res())));
+        ops.push(new Promise(res => item.body.setAsync(html, { coercionType: Office.CoercionType.Html }, () => res())));
+        Promise.all(ops).then(() => log("compose: filled")).finally(() => event.completed());
+      } else {
+        // Read surface: open new compose (best effort)
+        if (Office?.context?.mailbox?.displayNewMessageForm) {
+          Office.context.mailbox.displayNewMessageForm({ toRecipients: [to], subject, htmlBody: html });
+          log("read: displayNewMessageForm");
+        } else {
+          const deeplink =
+            `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+          if (Office?.context?.ui?.openBrowserWindow) {
+            Office.context.ui.openBrowserWindow(deeplink);
+            log("read: openBrowserWindow");
+          } else {
+            window.open(deeplink, "_blank");
+            log("read: window.open");
+          }
+        }
+        event.completed();
+      }
+    } catch (e) {
+      log("createTicket error", e);
+      try { event.completed(); } catch(_) {}
     }
-  } finally {
-    try { event?.completed?.(); } catch (_) {}
-  }
-}
+  };
 
-
-  // Expose globally for ExecuteFunction
-  window.createTicket = createTicket;
-  window.openPortal   = openPortal;
-
-  if (window.Office && Office.onReady) { Office.onReady(function(){ /* ready */ }); }
-
-  // Make testing obvious in the browser console
-  console.log("AW functions.js loaded");
+  window.openPortal = function (event) {
+    try {
+      const url = "https://help.abelwomack.com";
+      if (Office?.context?.ui?.openBrowserWindow) {
+        Office.context.ui.openBrowserWindow(url);
+        log("portal: openBrowserWindow");
+      } else {
+        window.open(url, "_blank");
+        log("portal: window.open");
+      }
+    } catch (e) {
+      log("openPortal error", e);
+    } finally {
+      try { event.completed(); } catch(_) {}
+    }
+  };
 })();
