@@ -1,88 +1,177 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>AW Helpdesk Taskpane</title>
+  <meta charset="UTF-8" />
+  <title>AW Helpdesk</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <!-- Office.js (required for add-in commands & compose APIs) -->
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+
   <style>
-    body{font-family:Segoe UI,Arial,sans-serif;margin:16px}
-    .row{margin:10px 0}
-    button{padding:10px 14px;font-size:14px}
-    .ok{color:#2e7d32}
-    .warn{color:#b71c1c}
-    textarea{width:100%;height:160px}
+    body { font-family: Segoe UI, Arial, sans-serif; margin: 16px; }
+    h3   { margin: 0 0 10px 0; color:#b71c1c; }
+    .row { margin: 10px 0; }
+    button { padding: 10px 14px; font-size: 14px; cursor: pointer; }
+    .ok   { color: #2e7d32; }
+    .warn { color: #b71c1c; }
+    textarea { width: 100%; height: 180px; }
+    .btns { display:flex; gap:8px; flex-wrap:wrap; }
   </style>
 </head>
 <body>
   <h3>AW Helpdesk</h3>
-  <div class="row">
+
+  <div class="row btns">
     <button id="btnEmail">Email Helpdesk</button>
-    <button id="btnPortal">Open Portal</button>
+    <button id="btnPortal">Open Helpdesk Portal</button>
   </div>
 
   <div class="row">
-    <label for="template">Ticket template (you can edit before sending):</label>
-    <textarea id="template"></textarea>
+    <label for="template"><strong>Plain-text template (fallback / reference)</strong></label>
+    <textarea id="template" spellcheck="false"></textarea>
   </div>
 
-  <div id="status" class="row ok"></div>
+  <div id="status" class="row"></div>
 
   <script>
-    function buildTemplate(){
+    // --- UI helpers ---
+    function set(msg, cls="ok") {
+      const el = document.getElementById("status");
+      if (!el) return;
+      el.className = cls;
+      el.textContent = msg;
+      console.log("[AW]", msg);
+    }
+
+    // --- Actions ---
+    function openPortal() {
+      try {
+        window.open("https://help.abelwomack.com", "_blank", "noopener");
+        set("Helpdesk portal opened.");
+      } catch (e) {
+        set("Could not open portal: " + (e?.message || e), "warn");
+      }
+    }
+
+    // Build a nicely formatted HTML body for Outlook compose
+    function buildTemplateHtml() {
       const u = Office?.context?.mailbox?.userProfile || {};
       const when = new Date().toLocaleString();
-      return `Summary: <one sentence>
-Impact/Urgency: <P1|P2|P3|P4>
-Users Affected: <>
-Location: <>
-Device: <>
-Apps/Services: <>
-Error Messages: <>
-Start Time: <>
-Steps Tried: <>
-Callback: <>
 
-Requested by: ${u.displayName || ""} ${u.emailAddress ? "(" + u.emailAddress + ")" : ""}
-Timestamp: ${when}
-`;
+      return `
+        <div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;line-height:1.4;">
+          <h2 style="margin:0 0 12px 0;color:#b71c1c;">AW Helpdesk Ticket</h2>
+          <table style="border-collapse:collapse;width:100%;max-width:720px;">
+            <colgroup><col style="width:210px"><col></colgroup>
+            <tbody>
+              <tr>
+                <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Summary</td>
+                <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;one sentence issue summary&gt;</td>
+              </tr>
+              <tr>
+                <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Impact / Urgency</td>
+                <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;P1 | P2 | P3 | P4&gt;</td>
+              </tr>
+              <tr>
+                <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Users Affected</td>
+                <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;names / count&gt;</td>
+              </tr>
+              <tr>
+                <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Location</td>
+                <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;office / remote / site&gt;</td>
+              </tr>
+              <tr>
+                <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Device</td>
+                <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;PC name / asset tag / OS&gt;</td>
+              </tr>
+              <tr>
+                <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Apps / Services</td>
+                <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;app names / systems impacted&gt;</td>
+              </tr>
+              <tr>
+                <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Error Messages</td>
+                <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;exact wording / screenshots&gt;</td>
+              </tr>
+              <tr>
+                <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Start Time</td>
+                <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;when it began&gt;</td>
+              </tr>
+              <tr>
+                <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Steps Tried</td>
+                <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;restarts / reinstalls / other steps&gt;</td>
+              </tr>
+              <tr>
+                <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Callback</td>
+                <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;best contact number / times&gt;</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top:12px;color:#555;">
+            <div><strong>Requested by:</strong> ${u.displayName || ""} ${u.emailAddress ? "(" + u.emailAddress + ")" : ""}</div>
+            <div><strong>Timestamp:</strong> ${when}</div>
+          </div>
+        </div>
+      `;
     }
-    function set(msg, cls){ const s=document.getElementById('status'); s.textContent=msg; s.className='row '+(cls||'ok'); }
 
-    function openPortal(){
-      const url = "https://help.abelwomack.com";
-      try {
-        if (Office?.context?.ui?.openBrowserWindow) Office.context.ui.openBrowserWindow(url);
-        else window.open(url, "_blank");
-        set("Portal opened.");
-      } catch(e){ set("Portal open failed: " + e, "warn"); }
+    // Plain-text fallback for mailto:
+    function buildTemplateText() {
+      const u = Office?.context?.mailbox?.userProfile || {};
+      const when = new Date().toLocaleString();
+      return [
+        "AW Helpdesk Ticket",
+        "===================",
+        "Summary: <one sentence issue summary>",
+        "Impact/Urgency: <P1 | P2 | P3 | P4>",
+        "Users Affected: <names / count>",
+        "Location: <office / remote / site>",
+        "Device: <PC name / asset tag / OS>",
+        "Apps/Services: <app names / systems impacted>",
+        "Error Messages: <exact wording / screenshots>",
+        "Start Time: <when it began>",
+        "Steps Tried: <restarts / reinstalls / other steps>",
+        "Callback: <best contact number / times>",
+        "",
+        `Requested by: ${u.displayName || ""} ${u.emailAddress ? "(" + u.emailAddress + ")" : ""}`,
+        `Timestamp: ${when}`
+      ].join("\r\n");
     }
 
-    function emailHelpdesk(){
+    function emailHelpdesk() {
       const to = "support@abelwomack.com";
       const subject = "IT Support Request";
-      const body = document.getElementById('template').value || buildTemplate();
+      const htmlBody = buildTemplateHtml();
+      const textBody = buildTemplateText();
 
       try {
+        // Compose API (preferred)
         Office.context.mailbox.displayNewMessageForm({
-          toRecipients:[to],
+          toRecipients: [to],
           subject,
-          htmlBody: body
+          htmlBody
         });
         set("Compose window opened.");
-      } catch(e){
-        // fallback: mailto (won't include HTML formatting)
-        location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      } catch (e) {
+        // Fallback to mailto: if compose API isn't available
+        location.href =
+          `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(textBody)}`;
         set("Used mailto: fallback.", "warn");
       }
     }
 
+    function seedTemplateTextarea() {
+      const ta = document.getElementById('template');
+      if (ta) ta.value = buildTemplateText();
+    }
+
+    // Wire up on load
     Office.onReady(() => {
-      document.getElementById('template').value = buildTemplate();
+      seedTemplateTextarea();
       document.getElementById('btnEmail').onclick  = emailHelpdesk;
       document.getElementById('btnPortal').onclick = openPortal;
-
-      // Optional: auto-open compose when pane appears
-      try { emailHelpdesk(); } catch(_) {}
       set("Taskpane ready.");
     });
   </script>
