@@ -61,11 +61,16 @@ Timestamp: ${when}
       const to = "support@abelwomack.com";
       const subject = "IT Support Request";
       const body = document.getElementById('template').value || buildTemplate();
+
       try {
-        Office.context.mailbox.displayNewMessageForm({ toRecipients:[to], subject, htmlBody: body });
+        Office.context.mailbox.displayNewMessageForm({
+          toRecipients:[to],
+          subject,
+          htmlBody: body
+        });
         set("Compose window opened.");
       } catch(e){
-        // last-ditch fallback
+        // fallback: mailto (won't include HTML formatting)
         location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         set("Used mailto: fallback.", "warn");
       }
@@ -76,7 +81,7 @@ Timestamp: ${when}
       document.getElementById('btnEmail').onclick  = emailHelpdesk;
       document.getElementById('btnPortal').onclick = openPortal;
 
-      // Optional: try to open compose immediately on pane load
+      // Optional: auto-open compose when pane appears
       try { emailHelpdesk(); } catch(_) {}
       set("Taskpane ready.");
     });
