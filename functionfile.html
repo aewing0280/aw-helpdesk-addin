@@ -2,13 +2,15 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>AW Helpdesk FunctionFile v14</title>
+  <title>AW Helpdesk FunctionFile v15</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
   <script>
-    function buildBodies() {
+    function log(){ try{ console.log.apply(console, ["[AW]"].concat([].slice.call(arguments))); }catch(_){} }
+
+    function buildText(){
       const u = Office?.context?.mailbox?.userProfile || {};
       const when = new Date().toLocaleString();
-      const text = `Summary: <one sentence>
+      return `Summary: <one sentence>
 Impact/Urgency: <P1|P2|P3|P4>
 Users Affected: <>
 Location: <>
@@ -22,43 +24,48 @@ Callback: <>
 Requested by: ${u.displayName || ""} ${u.emailAddress ? "(" + u.emailAddress + ")" : ""}
 Timestamp: ${when}
 `;
-      const html = ""; // not used in dialog redirect path
-      return { text, html };
     }
 
-    function openComposeViaDialog(to, subject, text) {
+    function openComposeDialog(to, subject, bodyText){
       const base = "https://aewing0280.github.io/aw-helpdesk-addin/compose.html";
-      const url = `${base}?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+      const url = `${base}?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}&v=15`;
       Office.context.ui.displayDialogAsync(
         url,
-        { height: 65, width: 35, displayInIframe: false }, // pop-out window
-        function (asyncResult) {
-          // We don't need to keep the dialog; the page immediately redirects itself.
-          // If you want, you can close after a short delay:
-          try { setTimeout(() => asyncResult.value && asyncResult.value.close && asyncResult.value.close(), 2500); } catch(_){}
+        { height: 65, width: 40, displayInIframe: false }, // true=iframe; false=popup
+        function (ar) {
+          if (ar.status !== Office.AsyncResultStatus.Succeeded) {
+            log("displayDialogAsync failed:", ar.error && ar.error.message);
+            return;
+          }
+          const dlg = ar.value;
+          log("dialog opened");
+          // Listen for errors/close
+          dlg.addEventHandler(Office.EventType.DialogEventReceived, function (ev) {
+            log("dialog event:", JSON.stringify(ev));
+          });
+          // Close after a couple seconds (compose should have taken over)
+          setTimeout(function(){ try{ dlg.close(); }catch(_){ }}, 3000);
         }
       );
     }
 
-    // Commands
     window.createTicket = function (event) {
       try { event?.completed(); } catch(_) {}
       const to = "support@abelwomack.com";
       const subject = "IT Support Request";
-      const { text } = buildBodies();
+      const text = buildText();
 
-      // Prefer native API if it works…
+      // Native call (if honored) + dialog fallback
       try {
         if (Office?.context?.mailbox?.displayNewMessageForm) {
           Office.context.mailbox.displayNewMessageForm({ toRecipients:[to], subject, htmlBody: text });
-          // also belt-and-suspenders with a dialog fallback shortly after
-          setTimeout(() => openComposeViaDialog(to, subject, text), 400);
+          log("displayNewMessageForm called");
+          setTimeout(function(){ openComposeDialog(to, subject, text); }, 500);
           return;
         }
-      } catch(_){}
+      } catch(e){ log("displayNewMessageForm error:", e); }
 
-      // …otherwise go straight to dialog redirect
-      openComposeViaDialog(to, subject, text);
+      openComposeDialog(to, subject, text);
     };
 
     window.openPortal = function (event) {
@@ -67,10 +74,11 @@ Timestamp: ${when}
       try {
         if (Office?.context?.ui?.openBrowserWindow) Office.context.ui.openBrowserWindow(url);
         else window.open(url, "_blank");
-      } catch(_){}
+        log("portal opened");
+      } catch(e){ log("portal error:", e); }
     };
 
-    Office.onReady(() => { console.log("[AW] FunctionFile v14 ready"); });
+    Office.onReady(() => log("FunctionFile v15 ready"));
   </script>
 </head>
 <body>OK</body>
