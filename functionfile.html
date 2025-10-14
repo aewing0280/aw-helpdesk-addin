@@ -1,26 +1,25 @@
 <!doctype html>
 <html>
-<head>
-  <meta charset="utf-8"/>
-  <title>AW Helpdesk FunctionFile</title>
-  <!-- Load Office runtime from Microsoft CDN -->
-  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-
-  <!-- Load your command handlers -->
-  <script src="./functions.js?v=2"></script>
-
-  <style>
-    body { font-family: system-ui, Segoe UI, Arial; margin: 24px; }
-    .ok { padding: 12px 16px; border: 1px solid #ccc; border-radius: 8px; }
-  </style>
-</head>
-<body>
-  <div class="ok">
-    <b>AW FunctionFile OK</b> — If you can see this, the FunctionFile is rendering.
-  </div>
-  <script>
-    // Make it obvious the page ran
-    console.log("AW FunctionFile loaded");
-  </script>
-</body>
+  <head>
+    <meta charset="utf-8"/>
+    <!-- Office JS must load first -->
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <script>
+      // Minimal, loud diagnostics to prove load
+      (function () {
+        Office.onReady(() => {
+          console.log("[AW] Office.onReady fired");
+          try { Office.context.ui && Office.context.ui.displayDialogAsync; } catch(e){}
+          // Expose a test to the window so we can verify from console
+          window.__aw_diag__ = () => "OK:" + (new Date()).toISOString();
+          // Set a global flag so we know FunctionFile is actually loaded
+          window.__aw_loaded__ = true;
+        });
+      })();
+    </script>
+    <script src="./functions.js?v=10"></script>
+  </head>
+  <body style="font-family:Segoe UI,Arial,sans-serif;font-size:12px">
+    OK
+  </body>
 </html>
