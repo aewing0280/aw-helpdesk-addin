@@ -1,18 +1,26 @@
 <!doctype html>
-<meta charset="utf-8">
-<title>Compose redirect…</title>
-<script>
-  (function () {
-    const p = new URLSearchParams(location.search);
-    const to = p.get("to") || "";
-    const subject = p.get("subject") || "";
-    const body = p.get("body") || "";
-    const url = "https://outlook.office.com/mail/deeplink/compose"
-      + "?to=" + encodeURIComponent(to)
-      + "&subject=" + encodeURIComponent(subject)
-      + "&body=" + encodeURIComponent(body);
-    // Navigate immediately
-    location.replace(url);
-  })();
-</script>
-<body>Redirecting to Outlook…</body>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>AW Compose Redirect</title>
+  <script>
+    (function(){
+      // Read query params (?to=&subject=&body=)
+      const p = new URLSearchParams(location.search);
+      const to = p.get("to") || "support@abelwomack.com";
+      const subject = p.get("subject") || "IT Support Request";
+      const body = p.get("body") || "Describe your issue here.";
+
+      // Outlook web compose deeplink
+      const deeplink = "https://outlook.office.com/mail/deeplink/compose"
+        + `?to=${encodeURIComponent(to)}`
+        + `&subject=${encodeURIComponent(subject)}`
+        + `&body=${encodeURIComponent(body)}`;
+
+      // Navigate this window to Outlook compose
+      location.replace(deeplink);
+    })();
+  </script>
+</head>
+<body>Opening compose…</body>
+</html>
