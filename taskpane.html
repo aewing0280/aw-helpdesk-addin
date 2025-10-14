@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AW Helpdesk Taskpane</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <style>
+    body{font-family:Segoe UI,Arial,sans-serif;margin:16px}
+    .row{margin:10px 0}
+    button{padding:10px 14px;font-size:14px}
+    .ok{color:#2e7d32}
+    .warn{color:#b71c1c}
+    textarea{width:100%;height:160px}
+  </style>
+</head>
+<body>
+  <h3>AW Helpdesk</h3>
+  <div class="row">
+    <button id="btnEmail">Email Helpdesk</button>
+    <button id="btnPortal">Open Portal</button>
+  </div>
+
+  <div class="row">
+    <label for="template">Ticket template (you can edit before sending):</label>
+    <textarea id="template"></textarea>
+  </div>
+
+  <div id="status" class="row ok"></div>
+
+  <script>
+    function buildTemplate(){
+      const u = Office?.context?.mailbox?.userProfile || {};
+      const when = new Date().toLocaleString();
+      return `Summary: <one sentence>
+Impact/Urgency: <P1|P2|P3|P4>
+Users Affected: <>
+Location: <>
+Device: <>
+Apps/Services: <>
+Error Messages: <>
+Start Time: <>
+Steps Tried: <>
+Callback: <>
+
+Requested by: ${u.displayName || ""} ${u.emailAddress ? "(" + u.emailAddress + ")" : ""}
+Timestamp: ${when}
+`;
+    }
+    function set(msg, cls){ const s=document.getElementById('status'); s.textContent=msg; s.className='row '+(cls||'ok'); }
+
+    function openPortal(){
+      const url = "https://help.abelwomack.com";
+      try {
+        if (Office?.context?.ui?.openBrowserWindow) Office.context.ui.openBrowserWindow(url);
+        else window.open(url, "_blank");
+        set("Portal opened.");
+      } catch(e){ set("Portal open failed: " + e, "warn"); }
+    }
+
+    function emailHelpdesk(){
+      const to = "support@abelwomack.com";
+      const subject = "IT Support Request";
+      const body = document.getElementById('template').value || buildTemplate();
+      try {
+        Office.context.mailbox.displayNewMessageForm({ toRecipients:[to], subject, htmlBody: body });
+        set("Compose window opened.");
+      } catch(e){
+        // last-ditch fallback
+        location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        set("Used mailto: fallback.", "warn");
+      }
+    }
+
+    Office.onReady(() => {
+      document.getElementById('template').value = buildTemplate();
+      document.getElementById('btnEmail').onclick  = emailHelpdesk;
+      document.getElementById('btnPortal').onclick = openPortal;
+
+      // Optional: try to open compose immediately on pane load
+      try { emailHelpdesk(); } catch(_) {}
+      set("Taskpane ready.");
+    });
+  </script>
+</body>
+</html>
