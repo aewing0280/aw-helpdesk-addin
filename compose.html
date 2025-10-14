@@ -7,42 +7,48 @@
     body{font-family:Segoe UI,Arial,sans-serif;margin:24px}
     button{font-size:14px;padding:10px 16px}
     .hint{margin-top:12px;color:#555}
+    .log{margin-top:12px;color:#777;font-size:12px;white-space:pre-wrap}
   </style>
   <script>
-    function log(){ try{ console.log.apply(console, ["[AW-DIALOG]"].concat([].slice.call(arguments))); }catch(_){} }
+    function qs(k,d){ const p=new URLSearchParams(location.search); return p.get(k) ?? d; }
+    function log(m){ try { const el=document.getElementById('log'); el.textContent += m + "\n"; } catch(_){} }
 
-    function qs(k, d){ const p=new URLSearchParams(location.search); return p.get(k) ?? d; }
+    function composeUrl(host, to, subject, body){
+      return `https://${host}/mail/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    }
 
-    function tryOpen(){
+    function trySequence(to, subject, body){
+      const hosts = ["outlook.office365.com", "outlook.office.com"];
+      let i = 0;
+      function step(){
+        if (i >= hosts.length) { log("All hosts attempted."); return; }
+        const url = composeUrl(hosts[i], to, subject, body);
+        log("Navigating: " + hosts[i]);
+        try { location.href = url; } catch(e) { log("navigate error: " + e); }
+        // If host 1 didn't take over, try the other after a short delay
+        setTimeout(() => { i++; if (document.visibilityState !== "hidden") step(); }, 900);
+      }
+      step();
+    }
+
+    function openCompose(){
       const to = qs("to","support@abelwomack.com");
       const subject = qs("subject","IT Support Request");
       const body = qs("body","Describe your issue here.");
-      // Use the OWA deeplink in THIS window (dialog window)
-      const url = "https://outlook.office.com/mail/deeplink/compose"
-        + `?to=${encodeURIComponent(to)}`
-        + `&subject=${encodeURIComponent(subject)}`
-        + `&body=${encodeURIComponent(body)}`;
-      try {
-        location.href = url;          // navigate dialog window itself
-        log("navigated to compose");
-      } catch(e) {
-        log("navigate failed", e);
-        // Final fallback: open a new tab (some hosts allow it)
-        try{ window.open(url, "_blank"); log("window.open fallback"); }catch(e2){ log("window.open failed", e2); }
-      }
+      trySequence(to, subject, body);
     }
 
     document.addEventListener("DOMContentLoaded", function(){
-      // Auto-attempt quickly (user-gesture path should be preserved from command click)
-      setTimeout(tryOpen, 50);
-      // Also provide a button if auto attempt is blocked by policy
-      document.getElementById("go").addEventListener("click", tryOpen);
+      log("Dialog ready.");
+      setTimeout(openCompose, 50);           // automatic attempt (user-gesture should be intact)
+      document.getElementById("go").onclick = openCompose;  // manual fallback
     });
   </script>
 </head>
 <body>
   <h3>Opening a new ticket compose…</h3>
   <button id="go">Open Compose Now</button>
-  <div class="hint">If nothing happens, click the button to continue.</div>
+  <div class="hint">If nothing happens in a second, click the button.</div>
+  <div id="log" class="log"></div>
 </body>
 </html>
