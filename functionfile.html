@@ -1,36 +1,144 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>AW Helpdesk Functions</title>
+  <title>AW Helpdesk FunctionFile</title>
+  <!-- REQUIRED for Outlook add-in commands -->
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
 </head>
 <body>
 <script>
-  // Called by ExecuteFunction in the manifest
-  function openPortal(event) {
+  // --- Helpers --------------------------------------------------------------
+  function buildTemplateHtml() {
+    const u = Office?.context?.mailbox?.userProfile || {};
+    const when = new Date().toLocaleString();
+
+    return `
+      <div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;line-height:1.4;">
+        <h2 style="margin:0 0 12px 0;color:#b71c1c;">AW Helpdesk Ticket</h2>
+        <table style="border-collapse:collapse;width:100%;max-width:720px;">
+          <colgroup><col style="width:210px"><col></colgroup>
+          <tbody>
+            <tr>
+              <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Summary</td>
+              <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;one sentence issue summary&gt;</td>
+            </tr>
+            <tr>
+              <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Impact / Urgency</td>
+              <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;P1 | P2 | P3 | P4&gt;</td>
+            </tr>
+            <tr>
+              <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Users Affected</td>
+              <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;names / count&gt;</td>
+            </tr>
+            <tr>
+              <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Location</td>
+              <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;office / remote / site&gt;</td>
+            </tr>
+            <tr>
+              <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Device</td>
+              <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;PC name / asset tag / OS&gt;</td>
+            </tr>
+            <tr>
+              <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Apps / Services</td>
+              <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;app names / systems impacted&gt;</td>
+            </tr>
+            <tr>
+              <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Error Messages</td>
+              <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;exact wording / screenshots&gt;</td>
+            </tr>
+            <tr>
+              <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Start Time</td>
+              <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;when it began&gt;</td>
+            </tr>
+            <tr>
+              <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Steps Tried</td>
+              <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;restarts / reinstalls / other steps&gt;</td>
+            </tr>
+            <tr>
+              <td style="vertical-align:top;padding:6px 10px;background:#f5f5f5;font-weight:600;border:1px solid #e0e0e0;">Callback</td>
+              <td style="vertical-align:top;padding:6px 10px;border:1px solid #e0e0e0;">&lt;best contact number / times&gt;</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="margin-top:12px;color:#555;">
+          <div><strong>Requested by:</strong> ${u.displayName || ""} ${u.emailAddress ? "(" + u.emailAddress + ")" : ""}</div>
+          <div><strong>Timestamp:</strong> ${when}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function buildTemplateText() {
+    const u = Office?.context?.mailbox?.userProfile || {};
+    const when = new Date().toLocaleString();
+    return [
+      "AW Helpdesk Ticket",
+      "===================",
+      "Summary: <one sentence issue summary>",
+      "Impact/Urgency: <P1 | P2 | P3 | P4>",
+      "Users Affected: <names / count>",
+      "Location: <office / remote / site>",
+      "Device: <PC name / asset tag / OS>",
+      "Apps/Services: <app names / systems impacted>",
+      "Error Messages: <exact wording / screenshots>",
+      "Start Time: <when it began>",
+      "Steps Tried: <restarts / reinstalls / other steps>",
+      "Callback: <best contact number / times>",
+      "",
+      `Requested by: ${u.displayName || ""} ${u.emailAddress ? "(" + u.emailAddress + ")" : ""}`,
+      `Timestamp: ${when}`
+    ].join("\r\n");
+  }
+
+  // --- Command handlers -----------------------------------------------------
+  function openPortal(evt) {
     try {
-      const url = "https://help.abelwomack.com";
-      if (Office?.context?.ui?.openBrowserWindow) {
-        Office.context.ui.openBrowserWindow(url);
-      } else {
-        window.open(url, "_blank");
-      }
+      window.open("https://help.abelwomack.com", "_blank", "noopener");
+      console.log("[AW] openPortal -> window opened");
     } catch (e) {
-      // swallow to avoid failing command
-      console.log("openPortal error:", e);
+      console.error("[AW] openPortal error:", e);
     } finally {
-      // Always complete the event for command functions
-      if (event && typeof event.completed === "function") event.completed();
+      // Always signal command completion
+      if (evt && typeof evt.completed === "function") evt.completed();
     }
   }
 
-  // Expose to Office runtime
-  Office.actions.associate("openPortal", openPortal);
+  function createTicket(evt) {
+    try {
+      const to = "support@abelwomack.com";
+      const subject = "IT Support Request";
+      const htmlBody = buildTemplateHtml();
+
+      if (Office?.context?.mailbox?.displayNewMessageForm) {
+        Office.context.mailbox.displayNewMessageForm({
+          toRecipients: [to],
+          subject,
+          htmlBody
+        });
+        console.log("[AW] createTicket -> displayNewMessageForm");
+      } else {
+        // Fallback for environments that can’t compose in-place
+        const body = encodeURIComponent(buildTemplateText());
+        location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${body}`;
+        console.log("[AW] createTicket -> mailto fallback");
+      }
+    } catch (e) {
+      console.error("[AW] createTicket error:", e);
+    } finally {
+      if (evt && typeof evt.completed === "function") evt.completed();
+    }
+  }
+
+  // Export for the manifest commands
+  window.openPortal = openPortal;
+  window.createTicket = createTicket;
 
   Office.onReady(() => {
     console.log("[AW] FunctionFile ready");
   });
 </script>
+OK
 </body>
 </html>
